@@ -591,7 +591,12 @@ CFStringRef getBuffer()
 		if (text)
 		{
 			if (CFStringCompare(text,CFSTR("\\n"),0)==kCFCompareEqualTo)
+            {
 				text = CFSTR("\n");
+            } else if (CFStringCompare(text,CFSTR(" "),0)==kCFCompareEqualTo)
+            {
+                text = CFSTR("<space>");
+            }
 
 			CFStringAppend(decodedData,text);
 		}

